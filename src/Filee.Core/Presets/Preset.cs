@@ -16,6 +16,13 @@ public enum PresetKind
     /// conversion is picked (preset list, watch folders, <c>filee --preset</c>).
     /// </summary>
     Group,
+
+    /// <summary>
+    /// Opens one of the file tools (<see cref="Preset.ToolId"/>, see <see cref="ToolCatalog"/>) with the files: an
+    /// interactive window of the macOS helper. Converts nothing, so like a group it is never offered where a conversion
+    /// is picked. A Filee before tools reads it as a group.
+    /// </summary>
+    Tool,
 }
 
 /// <summary>
@@ -101,13 +108,19 @@ public sealed class Preset
     public PresetKind Kind { get; set; } = PresetKind.Convert;
 
     /// <summary>Most presets one group fans out: more slices would get too narrow to hit.</summary>
-    public const int MaxSubPresets = 6;
+    public const int MaxSubPresets = 9;
 
     /// <summary>
     /// <see cref="TargetFormat"/> of a group: no format at all. A Filee from before groups reads a group as a
     /// conversion; with this it finds no route and greys the slice out instead of re-encoding files "as the same format".
     /// </summary>
     public const string GroupTarget = "group";
+
+    /// <summary><see cref="TargetFormat"/> of a tool: no format, so a Filee that doesn't know tools greys it out.</summary>
+    public const string ToolTarget = "tool";
+
+    /// <summary><see cref="PresetKind.Tool"/>: which tool it opens (<see cref="ToolInfo.Id"/>). Null otherwise.</summary>
+    public string? ToolId { get; set; }
 
     /// <summary>
     /// <see cref="PresetKind.Group"/>: the presets (by <see cref="Id"/>) its donut slice fans out in a small ring
@@ -119,6 +132,14 @@ public sealed class Preset
     /// <summary>True for a <see cref="PresetKind.Group"/>.</summary>
     [JsonIgnore]
     public bool IsGroup => Kind == PresetKind.Group;
+
+    /// <summary>True for a <see cref="PresetKind.Tool"/>.</summary>
+    [JsonIgnore]
+    public bool IsTool => Kind == PresetKind.Tool;
+
+    /// <summary>True for a preset that converts files (not a group or a tool).</summary>
+    [JsonIgnore]
+    public bool IsConversion => Kind == PresetKind.Convert;
 
     /// <summary>
     /// True if converting a <paramref name="sourceFormat"/> file saves every frame as a picture
@@ -148,6 +169,7 @@ public sealed class Preset
         Trace = Trace.Clone(),
         Output = Output.Clone(),
         Kind = Kind,
+        ToolId = ToolId,
         SubPresetIds = [.. SubPresetIds],
     };
 }

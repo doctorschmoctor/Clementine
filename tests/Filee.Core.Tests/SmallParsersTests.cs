@@ -90,7 +90,13 @@ public class BuiltInDataTests
             Assert.InRange(group.SubPresetIds.Count, 1, Preset.MaxSubPresets);
             Assert.All(group.SubPresetIds, id => Assert.False(presets[id].IsGroup, id));
         }
-        Assert.DoesNotContain(BuiltInData.CreateProfiles(), p => p.PresetIds.Any(id => presets[id].IsGroup));
+        // Only the "Tools" groups are on donuts, each on its own.
+        var toolGroups = BuiltInData.ToolDonuts.Select(t => t.Group).ToHashSet();
+        var profiles = BuiltInData.CreateProfiles();
+        Assert.DoesNotContain(profiles, p => p.PresetIds.Any(id => presets[id].IsGroup && !toolGroups.Contains(id)));
+        foreach (var (profile, group) in BuiltInData.ToolDonuts)
+            Assert.Contains(group, profiles.Single(p => p.Id == profile).PresetIds);
+        Assert.All(profiles, p => Assert.InRange(p.PresetIds.Count, 1, Filee.Core.Profiles.ToolbarProfile.MaxSlices));
     }
 
     [Fact]
@@ -111,6 +117,11 @@ public class BuiltInDataTests
         {
             if (preset.IsGroup)
                 Assert.Equal(Preset.GroupTarget, preset.TargetFormat); // none an older Filee could run it with
+            else if (preset.IsTool)
+            {
+                Assert.Equal(Preset.ToolTarget, preset.TargetFormat); // likewise
+                Assert.NotNull(ToolCatalog.Find(preset.ToolId));
+            }
             else
                 Assert.True(preset.TargetFormat == BuiltInData.SameAsSource || FormatRegistry.FindById(preset.TargetFormat) is not null, preset.Id);
         }

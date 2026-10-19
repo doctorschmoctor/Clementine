@@ -1,5 +1,5 @@
 // The group editor (Settings → Toolbar → New group): picking the presets a group fans out, their order, the limit of
-// six, saving and deleting.
+// nine (Preset.MaxSubPresets), saving and deleting.
 
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -45,7 +45,7 @@ public class GroupEditorTests
         Assert.DoesNotContain(vm.Available, c => c.Value == "to-jpg"); // each preset once
         vm.MoveUpCommand.Execute(vm.Members[2]);
         vm.RemoveCommand.Execute(vm.Members[0]);
-        Assert.Equal("Presets (2 / 6)", vm.MembersTitle);
+        Assert.Equal($"Presets (2 / {Preset.MaxSubPresets})", vm.MembersTitle);
 
         Assert.True(vm.Apply());
         Assert.Equal(["to-webp", "to-jpg"], group.SubPresetIds);
@@ -53,10 +53,10 @@ public class GroupEditorTests
     }
 
     [AvaloniaFact]
-    public void A_group_takes_six_presets_at_most_and_needs_a_name()
+    public void A_group_takes_nine_presets_at_most_and_needs_a_name()
     {
         var vm = Edit(new Preset { Name = "Many", Kind = PresetKind.Group });
-        foreach (var id in new[] { "to-png", "to-jpg", "to-webp", "to-tiff", "to-bmp", "to-ico" })
+        foreach (var id in new[] { "to-png", "to-jpg", "to-webp", "to-tiff", "to-bmp", "to-ico", "to-pdf", "to-txt", "to-html" })
             Add(vm, id);
         Assert.True(vm.IsFull);
         vm.ToAdd = vm.Available.First();
@@ -104,7 +104,7 @@ public class GroupEditorTests
         Assert.False(vm.MoveDownCommand.CanExecute(vm.Members[2]));
         vm.MoveUpCommand.Execute(vm.Members[2]); // now in the middle: both ways
         Assert.True(vm.MoveDownCommand.CanExecute(vm.Members[1]));
-        Assert.Equal("A group holds up to 6 presets.", vm.FullNote);
+        Assert.Equal($"A group holds up to {Preset.MaxSubPresets} presets.", vm.FullNote);
     }
 
     [AvaloniaFact]

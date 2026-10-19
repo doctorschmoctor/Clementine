@@ -271,6 +271,15 @@ public sealed class RadialController(
             return;
         }
 
+        if (preset.IsTool)
+        {
+            log.LogInformation("Opening tool {Tool} with {Count} file(s)", preset.ToolId, files.Count);
+            if (!ToolLauncher.Launch(preset.ToolId!, files))
+                log.LogWarning("Tool {Tool} did not start", preset.ToolId);
+            Close();
+            return;
+        }
+
         log.LogInformation("Converting {Count} file(s) with preset {Preset}", files.Count, preset.Id);
         var job = conversions.Start(files, preset, showInToast: false);
         if (job is null || _window is null)

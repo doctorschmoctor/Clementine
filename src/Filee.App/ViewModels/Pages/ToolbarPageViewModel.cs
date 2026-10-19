@@ -348,5 +348,6 @@ public sealed partial class ToolbarPageViewModel : ObservableObject
 
     private string? Caption(Preset p) =>
         p.IsGroup ? _loc.Format("donut.group_caption", p.SubPresetIds.Count)
+        : p.IsTool ? _loc["donut.tool_caption"]
         : p.TargetFormat == BuiltInData.SameAsSource ? _loc["donut.same_format"] : FormatLabels.NameOf(_loc, p.TargetFormat);
 }

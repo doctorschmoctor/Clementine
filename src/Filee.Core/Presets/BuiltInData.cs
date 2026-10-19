@@ -82,6 +82,8 @@ public static class BuiltInData
         .. CodecAndSubtitlePresets(),
         .. ModelPresets(),
         .. TracePresets(),
+        // Last, where an upgraded library gets them (settings schema 23).
+        .. ToolPresets(),
     ];
 
     /// <summary>
@@ -311,8 +313,85 @@ public static class BuiltInData
         new() { Id = "to-vcf", Name = "vCard", TargetFormat = "vcf" },
     ];
 
-    /// <summary>Creates the default toolbar profiles.</summary>
-    public static List<ToolbarProfile> CreateProfiles() =>
+    /// <summary>
+    /// The file tools (added in settings schema 23): one tool preset per tool of <see cref="ToolCatalog"/>, and the
+    /// "Tools" groups that fan them out on the images, video, audio and PDF donuts (<see cref="ToolDonuts"/>).
+    /// </summary>
+    public static List<Preset> ToolPresets() =>
+    [
+        .. ToolCatalog.All.Select(tool => new Preset
+        {
+            Id = ToolPresetId(tool.Id), NameKey = tool.NameKey, TargetFormat = Preset.ToolTarget, Kind = PresetKind.Tool,
+            ToolId = tool.Id,
+        }),
+        ToolGroup("tools-images", ["edit-photo", "annotate", "crop-image", "redact-image", "background", "collage", "compress", "metadata"]),
+        ToolGroup("tools-video", ["trim-video", "crop-video", "split-video", "join-videos", "video-speed", "video-frames", "redact-video", "compress", "metadata"]),
+        ToolGroup("tools-audio", ["trim-audio", "normalize-audio", "audio-channels", "bleep-audio", "audio-visualizer", "compress", "metadata"]),
+        ToolGroup("tools-pdf", ["merge-pdfs", "organize-pdf", "compress", "metadata"]),
+    ];
+
+    /// <summary>Which donut gets which "Tools" group, at its end.</summary>
+    public static readonly IReadOnlyList<(string Profile, string Group)> ToolDonuts =
+        [("images", "tools-images"), ("video", "tools-video"), ("audio", "tools-audio"), ("pdf", "tools-pdf")];
+
+    /// <summary>The "Share" tool: its own slice at the end of every donut with room (settings schema 24).</summary>
+    public const string SharePresetId = "tool-share";
+
+    /// <summary>Puts the "Share" slice at the end of <paramref name="profile"/> when it has room. True when it changed.</summary>
+    public static bool PlaceShare(ToolbarProfile profile)
+    {
+        if (profile.PresetIds.Contains(SharePresetId) || profile.PresetIds.Count >= ToolbarProfile.MaxSlices)
+            return false;
+        profile.PresetIds.Add(SharePresetId);
+        return true;
+    }
+
+    /// <summary>The id of the preset that opens tool <paramref name="toolId"/>.</summary>
+    public static string ToolPresetId(string toolId) => "tool-" + toolId;
+
+    private static Preset ToolGroup(string id, string[] tools) => new()
+    {
+        Id = id, NameKey = "preset.group_tools", TargetFormat = Preset.GroupTarget, Kind = PresetKind.Group,
+        SubPresetIds = [.. tools.Select(ToolPresetId)],
+    };
+
+    /// <summary>Creates the default toolbar profiles: the donuts of <see cref="ToolDonuts"/> end with their tools.</summary>
+    public static List<ToolbarProfile> CreateProfiles()
+    {
+        var profiles = CreateConversionProfiles();
+        foreach (var (profileId, group) in ToolDonuts)
+        {
+            if (profiles.FirstOrDefault(p => p.Id == profileId) is { } profile)
+                PlaceToolGroup(profile, group);
+        }
+        foreach (var profile in profiles)
+            PlaceShare(profile);
+        return profiles;
+    }
+
+    /// <summary>
+    /// Puts a "Tools" group at the end of <paramref name="profile"/> when it has room. The default PDF donut is full: there
+    /// the group takes the place of "Merge into one PDF" (its Merge PDFs tool merges too, in an order you choose). A donut
+    /// the user filled stays as it is. True when the donut changed.
+    /// </summary>
+    public static bool PlaceToolGroup(ToolbarProfile profile, string group)
+    {
+        if (profile.PresetIds.Contains(group))
+            return false;
+        if (profile.PresetIds.Count < ToolbarProfile.MaxSlices)
+        {
+            profile.PresetIds.Add(group);
+            return true;
+        }
+        if (profile.Id == "pdf" && profile.PresetIds.SequenceEqual(PdfDonut))
+        {
+            profile.PresetIds[profile.PresetIds.IndexOf("merge-pdf")] = group;
+            return true;
+        }
+        return false;
+    }
+
+    private static List<ToolbarProfile> CreateConversionProfiles() =>
     [
         new()
         {

@@ -15,6 +15,16 @@ public sealed class PresetAvailability(ConverterCatalog catalog, ILocalizer loc,
     /// </summary>
     public string? Check(Preset preset, IReadOnlyList<FileFormat> formats)
     {
+        // A file tool opens its window when the helper is there and it works on every kind of file dropped.
+        if (preset.IsTool)
+        {
+            if (!ToolLauncher.IsAvailable)
+                return loc["error.tools_missing"];
+            return ToolCatalog.Find(preset.ToolId) is { } tool && ToolCatalog.Accepts(tool, formats)
+                ? null
+                : loc["error.tool_unsupported"];
+        }
+
         // "Compress into one archive" packs the files as they are, so any file works, even of an unknown type.
         if (preset.Archive.CombineIntoOne
             && FormatRegistry.FindById(preset.TargetFormat) is { Category: FormatCategory.Archive } archive

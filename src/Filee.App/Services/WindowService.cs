@@ -190,6 +190,9 @@ public sealed class WindowService(ILocalizer loc, IServiceProvider services, Mem
         // A group converts nothing: it gets its own editor (name and the presets it fans out).
         if (preset.IsGroup)
             return await EditGroupAsync(preset, owner);
+        // A file tool has no options here: its window has them.
+        if (preset.IsTool)
+            return false;
         var dialog = new PresetEditorWindow
         {
             DataContext = new PresetEditorViewModel(preset, loc),

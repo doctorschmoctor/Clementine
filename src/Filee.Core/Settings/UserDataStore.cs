@@ -139,7 +139,7 @@ public sealed class UserDataStore
     public Preset? FindPreset(string id) => Presets.FirstOrDefault(p => p.Id == id);
 
     /// <summary>The preset <paramref name="id"/> when it converts (a group doesn't), for every place that runs one.</summary>
-    public Preset? FindConversion(string id) => Presets.FirstOrDefault(p => p.Id == id && !p.IsGroup);
+    public Preset? FindConversion(string id) => Presets.FirstOrDefault(p => p.Id == id && p.IsConversion);
 
     /// <summary>Exports presets and profiles to a shareable JSON file.</summary>
     public void Export(string path) =>
@@ -563,6 +563,41 @@ internal static class SettingsMigrations
         //      takes it. Other extensions the user removed from a built-in donut stay removed.
         if (from < 22)
             changed |= LearnExtensions(profiles, out _, ["fbx"]);
+        // v23: the file tools: a tool preset per tool, and a "Tools" group at the end of the images, video, audio and
+        //      PDF donuts when they have room (on the unchanged, full PDF donut in place of "Merge into one PDF", as in a
+        //      new library).
+        if (from < 23)
+            changed |= AddTools(presets, profiles);
+        // v24: the "Share" tool, its own slice at the end of every donut with room.
+        if (from < 24)
+        {
+            changed |= AddToolPresets(presets);
+            foreach (var profile in profiles)
+                changed |= BuiltInData.PlaceShare(profile);
+        }
+        return changed;
+    }
+
+    /// <summary>Adds the tool presets and groups a library doesn't have yet (none already there is changed).</summary>
+    private static bool AddToolPresets(List<Preset> presets)
+    {
+        var changed = false;
+        foreach (var preset in BuiltInData.ToolPresets().Where(p => presets.All(existing => existing.Id != p.Id)))
+        {
+            presets.Add(preset);
+            changed = true;
+        }
+        return changed;
+    }
+
+    private static bool AddTools(List<Preset> presets, List<ToolbarProfile> profiles)
+    {
+        var changed = AddToolPresets(presets);
+        foreach (var (profileId, group) in BuiltInData.ToolDonuts)
+        {
+            if (profiles.FirstOrDefault(p => p.Id == profileId) is { } profile)
+                changed |= BuiltInData.PlaceToolGroup(profile, group);
+        }
         return changed;
     }
 

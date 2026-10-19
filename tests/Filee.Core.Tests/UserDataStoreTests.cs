@@ -7,7 +7,7 @@ namespace Filee.Core.Tests;
 public class UserDataStoreTests
 {
     [Fact]
-    public void Groups_keep_only_conversions_once_and_at_most_six()
+    public void Groups_keep_only_conversions_once_and_at_most_nine()
     {
         using var dir = new TempDir();
         var store = new UserDataStore(dir.Path);
@@ -18,17 +18,17 @@ public class UserDataStoreTests
             Id = "mine",
             Name = "Mine",
             Kind = PresetKind.Group,
-            SubPresetIds = ["to-png", "gone", "to-png", "other", "to-jpg", "to-webp", "to-bmp", "to-gif", "to-ico", "to-tiff"],
+            SubPresetIds = ["to-png", "gone", "to-png", "other", "to-jpg", "to-webp", "to-bmp", "to-gif", "to-ico", "to-tiff", "to-pdf", "to-txt", "to-html"],
         });
         store.SaveLibrary();
 
         var reloaded = new UserDataStore(dir.Path);
         reloaded.Load();
 
-        // A deleted preset and a group in the group are dropped, a repeat counts once, the rest is cut at six.
+        // A deleted preset and a group in the group are dropped, a repeat counts once, the rest is cut at nine.
         var group = reloaded.FindPreset("mine")!;
         Assert.True(group.IsGroup);
-        Assert.Equal(["to-png", "to-jpg", "to-webp", "to-bmp", "to-gif", "to-ico"], group.SubPresetIds);
+        Assert.Equal(["to-png", "to-jpg", "to-webp", "to-bmp", "to-gif", "to-ico", "to-tiff", "to-pdf", "to-txt"], group.SubPresetIds);
         // No target format a Filee from before groups (which reads it as a conversion) could run it with.
         Assert.Equal(Preset.GroupTarget, group.TargetFormat);
         Assert.Null(Filee.Core.Formats.FormatRegistry.FindById(Preset.GroupTarget));
@@ -411,7 +411,7 @@ public class UserDataStoreTests
         Assert.Contains("json", data.Extensions);
         Assert.Contains("yaml", data.Extensions);
         Assert.DoesNotContain("yml", data.Extensions); // the user's donut keeps it
-        Assert.Equal(["to-json", "to-yaml", "to-toml", "to-xml", "to-csv", "to-xlsx"], data.PresetIds);
+        Assert.Equal(["to-json", "to-yaml", "to-toml", "to-xml", "to-csv", "to-xlsx", BuiltInData.SharePresetId], data.PresetIds);
         Assert.Contains("msg", profiles.Single(p => p.Id == "office").Extensions);
         var sheets = profiles.Single(p => p.Id == "spreadsheets").PresetIds;
         Assert.Equal(sheets.IndexOf("to-csv") + 1, sheets.IndexOf("to-json"));
@@ -479,7 +479,7 @@ public class UserDataStoreTests
         Assert.DoesNotContain("ape", audio.Extensions); // the user's donut keeps it
         var ids = profiles.Select(p => p.Id).ToList();
         Assert.Equal(ids.IndexOf("audio") + 1, ids.IndexOf("subtitles"));
-        Assert.Equal(BuiltInData.SubtitleProfile().PresetIds, profiles.Single(p => p.Id == "subtitles").PresetIds);
+        Assert.Equal([.. BuiltInData.SubtitleProfile().PresetIds, BuiltInData.SharePresetId], profiles.Single(p => p.Id == "subtitles").PresetIds);
         Assert.Contains("smi", profiles.Single(p => p.Id == "subtitles").Extensions);
         Assert.Equal(BuiltInData.CreateProfiles().Single(p => p.Id == "video").PresetIds, profiles.Single(p => p.Id == "video").PresetIds);
         Assert.Equal(VideoCodec.Hevc, presets.Single(p => p.Id == "mp4-hevc").Media.VideoCodec);
@@ -539,7 +539,7 @@ public class UserDataStoreTests
         Assert.Equal(ids.IndexOf("mixed") - 1, ids.IndexOf("models"));
         var models = profiles.Single(p => p.Id == "models");
         Assert.Equal(["glb", "gltf", "stl", "obj", "3mf", "ply", "fbx"], models.Extensions);
-        Assert.Equal(BuiltInData.ModelProfile().PresetIds, models.PresetIds);
+        Assert.Equal([.. BuiltInData.ModelProfile().PresetIds, BuiltInData.SharePresetId], models.PresetIds); // Share: schema 24
         Assert.False(SettingsMigrations.ApplyToLibrary(14, presets, profiles)); // once only
     }
 
@@ -572,7 +572,7 @@ public class UserDataStoreTests
         // A donut of the user that already opens FBX files keeps them.
         profiles = BuiltInData.CreateProfiles();
         profiles.Single(p => p.Id == "models").Extensions.Remove("fbx");
-        profiles.Insert(0, new ToolbarProfile { Id = "games", Name = "Games", Extensions = ["fbx"] });
+        profiles.Insert(0, new ToolbarProfile { Id = "games", Name = "Games", Extensions = ["fbx"], PresetIds = [BuiltInData.SharePresetId] });
         Assert.False(SettingsMigrations.ApplyToLibrary(21, presets, profiles));
         Assert.DoesNotContain("fbx", profiles.Single(p => p.Id == "models").Extensions);
     }

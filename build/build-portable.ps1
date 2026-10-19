@@ -117,6 +117,22 @@ if ($Runtime.StartsWith('osx-')) {
     $entitlements = Join-Path $root 'installer/macos/entitlements.plist'
     $signOptions = @('--force', '--sign', $SigningIdentity)
     if ($SigningIdentity -ne '-') { $signOptions += @('--timestamp', '--options', 'runtime') }
+    # Clementine Tools: the native file tool windows (tools/macos/ClementineTools), a helper app in Contents/Helpers
+    # that the donut's tool slices open. Built with the Swift toolchain (Xcode) for this runtime's architecture.
+    $toolsSource = Join-Path $root 'tools/macos/ClementineTools'
+    if (Test-Path -LiteralPath (Join-Path $toolsSource 'Package.swift')) {
+        $arch = if ($Runtime -eq 'osx-arm64') { 'arm64' } else { 'x86_64' }
+        Invoke-Checked 'Build Clementine Tools' { swift build -c release --arch $arch --package-path $toolsSource }
+        $toolsBin = (& swift build -c release --arch $arch --package-path $toolsSource --show-bin-path | Select-Object -Last 1).Trim()
+        $helper = Join-Path $contents 'Helpers/Clementine Tools.app'
+        New-Item -ItemType Directory -Force -Path (Join-Path $helper 'Contents/MacOS'), (Join-Path $helper 'Contents/Resources') | Out-Null
+        Copy-Item -LiteralPath (Join-Path $toolsBin 'ClementineTools') -Destination (Join-Path $helper 'Contents/MacOS/ClementineTools')
+        Copy-Item -LiteralPath (Join-Path $resources 'filee.icns') -Destination (Join-Path $helper 'Contents/Resources/filee.icns')
+        (Get-Content -LiteralPath (Join-Path $toolsSource 'Info.plist') -Raw).Replace('__VERSION__', $bundleVersion) |
+            Set-Content -LiteralPath (Join-Path $helper 'Contents/Info.plist') -Encoding utf8NoBOM
+        Invoke-Checked 'Validate Clementine Tools Info.plist' { plutil -lint (Join-Path $helper 'Contents/Info.plist') }
+        Invoke-Checked 'Sign Clementine Tools' { codesign @signOptions $helper }
+    }
     # Every file in Contents/MacOS is code to codesign, the .NET assemblies too (their signature goes into extended
     # attributes): signing the main executable checks all of them. Deepest paths first, the main executable last.
     $mainExecutable = Join-Path $publish 'Filee'
