@@ -270,8 +270,7 @@ public sealed partial class DonutMenu
         // Slices shrink towards the centre with a slight stagger ("sucked in").
         if (collapseAll < 1)
         {
-            using (context.PushOpacity(1 - collapseAll))
-                DrawSoftShadow(context, center, r2);
+            DrawHitArea(context, new Point(center.X, center.Y + 4), r2 + 14);
 
             for (var i = 0; i < n; i++)
             {
@@ -288,7 +287,7 @@ public sealed partial class DonutMenu
                 using (context.PushTransform(transform))
                 using (context.PushOpacity(1 - c))
                 {
-                    var wedge = CreateWedge(center, r1, r2, i, n);
+                    var wedge = CreateWedge(center, r1, r2, i, n, SliceCornerRadius);
                     context.DrawGeometry(WithOpacity(SliceBrush, SliceOpacity), BorderPen(), wedge);
                     var hot = i == ActiveIndex;
                     if (hot)
@@ -320,7 +319,7 @@ public sealed partial class DonutMenu
         using var __ = context.PushOpacity(opacity);
 
         var plateRadius = RingRadius + RingStroke + 2;
-        DrawPlateShadow(context, center, plateRadius);
+        DrawHitArea(context, new Point(center.X, center.Y + 3), plateRadius + 10);
         context.DrawEllipse(CenterBrush, BorderPen(), center, plateRadius, plateRadius);
         context.DrawEllipse(null, new Pen(WithOpacity(SecondaryForeground, 0.22), RingStroke), center, RingRadius, RingRadius);
 
@@ -391,22 +390,6 @@ public sealed partial class DonutMenu
                      Matrix.CreateTranslation(at.X, at.Y);
         using (context.PushTransform(matrix))
             context.DrawGeometry(CenterBrush, null, CloseIcon);
-    }
-
-    private static void DrawPlateShadow(DrawingContext context, Point center, double radius)
-    {
-        var outer = radius + 10;
-        var brush = new RadialGradientBrush
-        {
-            GradientStops =
-            {
-                new GradientStop(Color.FromArgb(0, 0, 0, 0), 0),
-                new GradientStop(Color.FromArgb(0, 0, 0, 0), (radius - 8) / outer),
-                new GradientStop(Color.FromArgb(52, 0, 0, 0), radius / outer),
-                new GradientStop(Color.FromArgb(0, 0, 0, 0), 1),
-            },
-        };
-        context.DrawEllipse(brush, null, new Point(center.X, center.Y + 3), outer, outer);
     }
 
     /// <summary>Clockwise arc from 12 o'clock covering <paramref name="fraction"/> of the circle.</summary>

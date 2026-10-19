@@ -45,6 +45,7 @@
       <CornerRadius x:Key="SoftRadius">16</CornerRadius>
       <CornerRadius x:Key="SoftRadiusSmall">9</CornerRadius>
       <CornerRadius x:Key="SoftRadiusLarge">22</CornerRadius>
+      <x:Double x:Key="DonutCornerRadius">16</x:Double>
       <FontFamily x:Key="AppFontFamily">Segoe UI, Malgun Gothic, Microsoft YaHei, sans-serif</FontFamily>
 
       <!-- Springy easing used by press/hover transitions ("말랑말랑"). -->
@@ -215,6 +216,7 @@
     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     <Setter Property="SecondaryForeground" Value="{DynamicResource TextSecondaryBrush}" />
     <Setter Property="DangerBrush" Value="{DynamicResource DangerBrush}" />
+    <Setter Property="SliceCornerRadius" Value="{DynamicResource DonutCornerRadius}" />
     <Setter Property="SuccessBrush" Value="{DynamicResource SuccessBrush}" />
   </Style>
 

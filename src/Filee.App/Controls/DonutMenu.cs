@@ -85,6 +85,10 @@ public sealed partial class DonutMenu : Control
     public static readonly StyledProperty<IBrush?> DangerBrushProperty =
         AvaloniaProperty.Register<DonutMenu, IBrush?>(nameof(DangerBrush), Brushes.IndianRed);
 
+    /// <summary>How round each slice's corners are, in pixels: the "Softness" of Settings → Theme.</summary>
+    public static readonly StyledProperty<double> SliceCornerRadiusProperty =
+        AvaloniaProperty.Register<DonutMenu, double>(nameof(SliceCornerRadius));
+
     /// <summary>Gap between slices in pixels (keeps the donut "full" while separating slices).</summary>
     private const double GapPixels = 3;
     private const double PopOut = 7;
@@ -127,7 +131,8 @@ public sealed partial class DonutMenu : Control
         AffectsMeasure<DonutMenu>(OuterRadiusProperty, ReserveSubRingProperty);
         AffectsRender<DonutMenu>(HoleRatioProperty, SliceOpacityProperty, CenterTitleProperty, CenterSubtitleProperty,
             IsEditModeProperty, SliceBrushProperty, SliceBorderBrushProperty, CenterBrushProperty, AccentBrushProperty,
-            OnAccentBrushProperty, ForegroundProperty, SecondaryForegroundProperty, SuccessBrushProperty);
+            OnAccentBrushProperty, ForegroundProperty, SecondaryForegroundProperty, SuccessBrushProperty,
+            SliceCornerRadiusProperty);
         ItemsProperty.Changed.AddClassHandler<DonutMenu>((d, _) => d.OnItemsChanged());
     }
 
@@ -141,6 +146,7 @@ public sealed partial class DonutMenu : Control
     public double OuterRadius { get => GetValue(OuterRadiusProperty); set => SetValue(OuterRadiusProperty, value); }
     public double HoleRatio { get => GetValue(HoleRatioProperty); set => SetValue(HoleRatioProperty, value); }
     public double SliceOpacity { get => GetValue(SliceOpacityProperty); set => SetValue(SliceOpacityProperty, value); }
+    public double SliceCornerRadius { get => GetValue(SliceCornerRadiusProperty); set => SetValue(SliceCornerRadiusProperty, value); }
     public string? CenterTitle { get => GetValue(CenterTitleProperty); set => SetValue(CenterTitleProperty, value); }
     public string? CenterSubtitle { get => GetValue(CenterSubtitleProperty); set => SetValue(CenterSubtitleProperty, value); }
 
@@ -799,7 +805,7 @@ public sealed partial class DonutMenu : Control
             return;
         }
 
-        DrawSoftShadow(context, center, r2);
+        DrawHitArea(context, new Point(center.X, center.Y + 4), r2 + 14);
 
         if (n == 0)
         {
@@ -836,7 +842,7 @@ public sealed partial class DonutMenu : Control
             using (context.PushTransform(transform))
             using (context.PushOpacity(Math.Clamp(open, 0, 1) * (i == _dimmedIndex ? 0.3 : 1)))
             {
-                var wedge = CreateWedge(center, r1, r2, mid, span);
+                var wedge = CreateWedge(center, r1, r2, mid, span, SliceCornerRadius);
                 context.DrawGeometry(WithOpacity(SliceBrush, SliceOpacity * (item.IsEnabled ? 1 : 0.55)), BorderPen(), wedge);
 
                 // The accent fades in and out with the highlight (no floor: a floor made it vanish with a jump).
@@ -865,24 +871,13 @@ public sealed partial class DonutMenu : Control
             DrawEditButton(context, EditButtonCenter(_hoverIndex));
     }
 
-    private void DrawSoftShadow(DrawingContext context, Point center, double r2)
-    {
-        // A radial gradient ring fakes a soft drop shadow without blur effects (cheap on any GPU).
-        var shadowRadius = r2 + 14;
-        var brush = new RadialGradientBrush
-        {
-            GradientStops =
-            {
-                new GradientStop(Color.FromArgb(0, 0, 0, 0), 0),
-                new GradientStop(Color.FromArgb(0, 0, 0, 0), (r2 - 18) / shadowRadius),
-                new GradientStop(Color.FromArgb(46, 0, 0, 0), (r2 - 2) / shadowRadius),
-                new GradientStop(Color.FromArgb(0, 0, 0, 0), 1),
-            },
-        };
-        var opening = _open.Length == 0 ? 1 : Math.Clamp(_open.Average(), 0, 1);
-        using (context.PushOpacity(opening))
-            context.DrawEllipse(brush, null, new Point(center.X, center.Y + 4), shadowRadius, shadowRadius);
-    }
+    /// <summary>
+    /// An invisible disc under the donut. Pointer hit testing follows what is drawn, so this keeps the donut catching
+    /// the pointer while its slices are still growing in after it opens, and over the seams between them. (It used
+    /// to be a drop shadow, which did the same; the shadow was removed but its exact footprint is kept.)
+    /// </summary>
+    private static void DrawHitArea(DrawingContext context, Point center, double radius) =>
+        context.DrawEllipse(Brushes.Transparent, null, center, radius, radius);
 
     private void DrawCenter(DrawingContext context, Point center, double r1, Typeface bold, Typeface regular)
     {
@@ -972,7 +967,7 @@ public sealed partial class DonutMenu : Control
     {
         var mid = _previewMid.Value;
         var span = _previewSpan.Value;
-        var wedge = CreateWedge(center, r1, r2, mid, span);
+        var wedge = CreateWedge(center, r1, r2, mid, span, SliceCornerRadius);
         var outline = new Pen(WithOpacity(AccentBrush, 0.9), 1.5, new DashStyle([4, 3], 0));
         context.DrawGeometry(WithOpacity(AccentBrush, 0.22), outline, wedge);
         if (_previewLabel is null || span < 0.25)
@@ -982,15 +977,88 @@ public sealed partial class DonutMenu : Control
                 span * (r1 + r2) / 2 - 10, r2 - r1 - 16, bold, regular, hot: false);
     }
 
-    private static StreamGeometry CreateWedge(Point c, double r1, double r2, int index, int count) =>
-        count == 1 ? CreateRing(c, r1, r2) : CreateWedge(c, r1, r2, DonutGeometry.MidAngle(index, count), DonutGeometry.Span(count));
+    private static StreamGeometry CreateWedge(Point c, double r1, double r2, int index, int count, double cornerRadius = 0) =>
+        count == 1
+            ? CreateRing(c, r1, r2)
+            : CreateWedge(c, r1, r2, DonutGeometry.MidAngle(index, count), DonutGeometry.Span(count), cornerRadius);
 
-    /// <summary>A slice of <paramref name="span"/> radians centred on <paramref name="mid"/> (a ring when it is all of it).</summary>
-    private static StreamGeometry CreateWedge(Point c, double r1, double r2, double mid, double span)
+    /// <summary>
+    /// A slice of <paramref name="span"/> radians centred on <paramref name="mid"/> (a ring when it is all of it). Its
+    /// four corners are rounded by <paramref name="cornerRadius"/> pixels, or less where the slice is too small for that.
+    /// </summary>
+    private static StreamGeometry CreateWedge(Point c, double r1, double r2, double mid, double span, double cornerRadius = 0)
     {
         if (span >= 2 * Math.PI - 0.001)
             return CreateRing(c, r1, r2);
 
+        var half = GapPixels / 2;
+        var rc = FitCornerRadius(r1, r2, span, half, cornerRadius);
+        if (rc < 0.5)
+            return CreateSharpWedge(c, r1, r2, mid, span);
+
+        // Each corner is a circle of radius rc touching a side and a rim. A side is a line half a gap inside the
+        // slice's edge, so the circle's centre lies rc + half from the edge; from the donut's centre it lies r2 − rc
+        // (inside the outer rim) or r1 + rc (outside the hole). "along" is how far out along the edge it sits and
+        // "turn" the angle between the edge and the centre, which is also where the circle touches the rim.
+        var offset = half + rc;
+        var outerAlong = Math.Sqrt(Math.Pow(r2 - rc, 2) - offset * offset);
+        var innerAlong = Math.Sqrt(Math.Pow(r1 + rc, 2) - offset * offset);
+        var outerTurn = Math.Atan2(offset, outerAlong);
+        var innerTurn = Math.Atan2(offset, innerAlong);
+        var start = mid - span / 2;
+        var end = mid + span / 2;
+
+        // A point on the side along edge angle a, shifted half a gap into the slice (clockwise from the first edge,
+        // anticlockwise from the last).
+        Point Side(double a, double along, bool first)
+        {
+            var direction = first ? 1 : -1;
+            return new Point(
+                c.X + along * Math.Sin(a) + direction * half * Math.Cos(a),
+                c.Y - along * Math.Cos(a) + direction * half * Math.Sin(a));
+        }
+
+        var corner = new Size(rc, rc);
+        var outerArc = span - 2 * outerTurn;
+        var innerArc = span - 2 * innerTurn;
+        var geometry = new StreamGeometry();
+        using var ctx = geometry.Open();
+        ctx.BeginFigure(DonutGeometry.PointAt(c, r2, start + outerTurn), true);
+        ctx.ArcTo(DonutGeometry.PointAt(c, r2, end - outerTurn), new Size(r2, r2), 0, outerArc > Math.PI, SweepDirection.Clockwise);
+        ctx.ArcTo(Side(end, outerAlong, first: false), corner, 0, false, SweepDirection.Clockwise);
+        ctx.LineTo(Side(end, innerAlong, first: false));
+        ctx.ArcTo(DonutGeometry.PointAt(c, r1, end - innerTurn), corner, 0, false, SweepDirection.Clockwise);
+        ctx.ArcTo(DonutGeometry.PointAt(c, r1, start + innerTurn), new Size(r1, r1), 0, innerArc > Math.PI, SweepDirection.CounterClockwise);
+        ctx.ArcTo(Side(start, innerAlong, first: true), corner, 0, false, SweepDirection.Clockwise);
+        ctx.LineTo(Side(start, outerAlong, first: true));
+        ctx.ArcTo(DonutGeometry.PointAt(c, r2, start + outerTurn), corner, 0, false, SweepDirection.Clockwise);
+        ctx.EndFigure(true);
+        return geometry;
+    }
+
+    /// <summary>
+    /// The largest corner radius up to <paramref name="wanted"/> whose rounded corners fit the slice: at most half its
+    /// thickness, and the two corners on each rim must not meet.
+    /// </summary>
+    private static double FitCornerRadius(double r1, double r2, double span, double half, double wanted)
+    {
+        var rc = Math.Min(wanted, (r2 - r1) / 2 - 0.5);
+        for (var i = 0; i < 16 && rc >= 0.5; i++, rc *= 0.85)
+        {
+            var offset = half + rc;
+            if (r1 + rc <= offset || r2 - rc <= offset)
+                continue;
+            var outerTurn = Math.Atan2(offset, Math.Sqrt(Math.Pow(r2 - rc, 2) - offset * offset));
+            var innerTurn = Math.Atan2(offset, Math.Sqrt(Math.Pow(r1 + rc, 2) - offset * offset));
+            if (outerTurn < span / 2 - 0.002 && innerTurn < span / 2 - 0.002)
+                return rc;
+        }
+        return 0;
+    }
+
+    /// <summary>A slice with sharp corners and a constant-width gap to its neighbours.</summary>
+    private static StreamGeometry CreateSharpWedge(Point c, double r1, double r2, double mid, double span)
+    {
         var outerHalf = Math.Max(0.001, span / 2 - GapPixels / 2 / r2);
         var innerHalf = Math.Max(0.001, span / 2 - GapPixels / 2 / r1);
 

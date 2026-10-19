@@ -59,6 +59,7 @@ public sealed class ThemeService(IPlatformServices platform)
         res["SoftRadiusLarge"] = new CornerRadius(Math.Round(r * 1.35));
         res["ControlCornerRadius"] = new CornerRadius(Math.Round(r * 0.55));
         res["OverlayCornerRadius"] = new CornerRadius(r);
+        res["DonutCornerRadius"] = r; // the donut's slices round their corners by the same amount
 
         // Han characters look different in Korean and Chinese fonts: put the UI language's font first.
         var cjk = language.StartsWith("zh", StringComparison.OrdinalIgnoreCase)

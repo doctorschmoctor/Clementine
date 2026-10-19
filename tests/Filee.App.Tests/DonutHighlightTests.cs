@@ -29,7 +29,10 @@ public class DonutHighlightTests
         Set(donut, "_lastTick", Environment.TickCount64 - DonutMenu.StalledLoopMs * 4);
 
         donut.SetExternalHighlight(2);
-        for (var i = 0; i < 90 && donut.LitAmount(2) < 0.9; i++)
+        // Frames advance the highlight by the real time between them, so wait by the clock rather than a frame count:
+        // how many frames fit in the fade depends on how fast the machine draws one.
+        var deadline = Environment.TickCount64 + 3000;
+        while (donut.LitAmount(2) < 0.9 && Environment.TickCount64 < deadline)
         {
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             Dispatcher.UIThread.RunJobs();

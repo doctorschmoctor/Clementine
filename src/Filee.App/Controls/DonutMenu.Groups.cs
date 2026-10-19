@@ -392,7 +392,7 @@ public sealed partial class DonutMenu
             {
                 var item = children[k];
                 var mid = DonutGeometry.SubMidAngle(parentMid, k, children.Count, subSpan);
-                var wedge = CreateWedge(center, inner, outer, mid, subSpan);
+                var wedge = CreateWedge(center, inner, outer, mid, subSpan, SliceCornerRadius);
                 context.DrawGeometry(WithOpacity(SliceBrush, SliceOpacity * (item.IsEnabled ? 1 : 0.55)), BorderPen(), wedge);
                 var hot = k == _subHover && group == _expanded && item.IsEnabled;
                 if (hot)
